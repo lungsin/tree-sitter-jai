@@ -51,6 +51,7 @@ module.exports = grammar({
 
     conflicts: $ => [
         [$.all_statements, $.statements_that_dont_require_a_semicolon],
+        [$.call_expression],
         [$.call_expression, $.parameterized_struct_type],
         [$.named_parameters, $.assignment_parameters],
         [$.named_return, $.parameter],
@@ -61,7 +62,7 @@ module.exports = grammar({
         [$.expressions, $.variable_declaration, $.const_declaration, $.assignment_statement],
         [$.polymorphic_type],
 
-        [$.member_expression, $.types, $.member_type, $.struct_literal, $.array_literal],
+        // [$.member_expression, $.types, $.member_type, $.struct_literal, $.array_literal],
 
         // [$.top_level_declarations, $.call_expression],
         [$.identifier_type, $.types, $.parameterized_struct_type],
@@ -202,6 +203,7 @@ module.exports = grammar({
             $.call_expression,
             $.member_expression,
             $.index_expression,
+            $.dot_access,
 
             $.if_expression,
 
@@ -745,20 +747,17 @@ module.exports = grammar({
         call_expression: $ => prec.dynamic(PREC.CALL, seq(
             optional(field('modifier', 'inline')),
             field('function', choice(
-                choice(
-                    $.identifier,
-                    $.compiler_directive
-                ),
-                $.parenthesized_expression
+                $.identifier,
+                $.compiler_directive,
+                $.parenthesized_expression,
+                $.member_expression,
+                $.index_expression,
             )),
             $.assignment_parameters,
         )),
 
-        // TODO: fix member issues
-        //  member.*.other
-        //  member.(type)
         member_expression: $ => prec.left(PREC.MEMBER, seq(
-            optional(choice(
+            choice(
                 $.call_expression,
                 $.parenthesized_expression,
                 $.member_expression,
@@ -767,17 +766,23 @@ module.exports = grammar({
                 $.identifier,
                 $.cast_v2_expression,
                 $.string,
-            )),
+            ),
             '.',
-            prec.left(choice(
-                $.member_expression,
+            choice(
                 $.identifier,
-                $.call_expression,
                 $.postfix_dereference,
-            )),
+            ),
         )),
 
         postfix_dereference: _ => prec.left('*'),
+
+        dot_access: $ => seq(
+            '.',
+            choice(
+                $.identifier,
+                $.postfix_dereference,
+            ),
+        ),
 
         index_expression: $ => prec(PREC.MEMBER, seq(
             $.expressions,
